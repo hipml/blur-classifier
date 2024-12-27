@@ -3,3 +3,4 @@ torchvision
 numpy
 Pillow
 datasets
+pillow-heif
