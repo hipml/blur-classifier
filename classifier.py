@@ -141,12 +141,12 @@ def predict_blur(model, image_path, transform, device, threshold=0.8):
         with torch.no_grad():
             prob = model(image).item()
         
-        return prob > threshold, prob
+        return prob > float(threshold), prob
     except Exception as e:
         print(f"Error processing {image_path}: {str(e)}")
         return None, None
 
-def process_directory(model, source_dir, output_dir, device, transform):
+def process_directory(model, source_dir, output_dir, device, transform, threshold):
     blurred_dir = os.path.join(output_dir, 'blurred')
     normal_dir = os.path.join(output_dir, 'normal')
     os.makedirs(blurred_dir, exist_ok=True)
@@ -156,7 +156,7 @@ def process_directory(model, source_dir, output_dir, device, transform):
     image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.JPG', '.JPEG', '.PNG'}
     for file_path in Path(source_dir).rglob('*'):
         if file_path.suffix in image_extensions:
-            is_blurry, confidence = predict_blur(model, str(file_path), transform, device)
+            is_blurry, confidence = predict_blur(model, str(file_path), transform, device, threshold)
             
             if is_blurry is not None:  
                 dest_dir = blurred_dir if is_blurry else normal_dir
@@ -221,7 +221,7 @@ def main():
         model.load_state_dict(torch.load(args.model, weights_only=True))
         model = model.to(device)
         
-        process_directory(model, args.source, args.output, device, transform)
+        process_directory(model, args.source, args.output, device, transform, args.threshold)
         print(f"\nProcessing complete. Check {args.output} for results.")
         
     else:
