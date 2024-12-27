@@ -22,6 +22,7 @@ python classifier.py train --steps 1000
 
 ### To run:
 ```bash
-python classifier.py inf --source /path/to/images 
-                         --output /path/to/output
+python classifier.py inf --source /path/to/images  # image directory to be sorted
+                         --output /path/to/output  # sorted images are cp'd to here in `normal`, `blurred` subdirs
+                         --threshold 0.8           # confidence threshold for classifying an image as blurry (range: 0 to 1. default: 0.8)
 ```
