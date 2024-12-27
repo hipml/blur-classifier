@@ -7,6 +7,9 @@ import argparse
 import numpy as np
 import os
 import shutil
+from tqdm import tqdm
+import time
+
 
 from datasets import load_dataset
 from PIL import Image
@@ -73,6 +76,7 @@ class StreamingBlurDataset(IterableDataset):
             
             yield images, labels
 
+
 def train_model(model, train_loader, max_steps=1000, device='cuda'):
     model = model.to(device)
     criterion = nn.BCELoss()
@@ -82,9 +86,12 @@ def train_model(model, train_loader, max_steps=1000, device='cuda'):
     running_loss = 0.0
     correct = 0
     total = 0
-    step = 0
     
-    for images, labels in train_loader:
+    pbar = tqdm(total=max_steps)
+    start_time = time.time()
+    last_time = start_time
+    
+    for step, (images, labels) in enumerate(train_loader, 1):
         b, pair, c, h, w = images.shape
         images = images.view(-1, c, h, w)
         labels = labels.view(-1)
@@ -102,17 +109,27 @@ def train_model(model, train_loader, max_steps=1000, device='cuda'):
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
         
-        step += 1
         if step % 10 == 0:
-            print(f'Step [{step}/{max_steps}], '
-                  f'Loss: {running_loss/10:.4f}, '
-                  f'Accuracy: {100*correct/total:.2f}%')
+            torch.cuda.empty_cache()
+
+            current_time = time.time()
+            seconds_per_iter = (current_time - last_time) / 10
+            last_time = current_time
+            
+            pbar.set_postfix({
+                'loss': f'{running_loss/10:.4f}',
+                'acc': f'{100*correct/total:.2f}%',
+                'sec/iter': f'{seconds_per_iter:.3f}'
+            })
             running_loss = 0.0
             correct = 0
             total = 0
             
+        pbar.update(1)
         if step >= max_steps:
             break
+            
+    pbar.close()
 
 def predict_blur(model, image_path, transform, device, threshold=0.8):
     model.eval()
@@ -191,7 +208,7 @@ def main():
     if args.mode == 'train':
                 
         train_data = StreamingBlurDataset(transform=transform)
-        train_loader = DataLoader(train_data, batch_size=32)
+        train_loader = DataLoader(train_data, batch_size=16)
         
         model = BlurClassifier()
         train_model(model, train_loader, max_steps=args.steps, device=device)
