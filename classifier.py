@@ -13,6 +13,7 @@ import time
 
 from datasets import load_dataset
 from PIL import Image
+from pillow_heif import register_heif_opener
 from pathlib import Path
 
 class BlurClassifier(nn.Module):
@@ -153,7 +154,7 @@ def process_directory(model, source_dir, output_dir, device, transform, threshol
     os.makedirs(normal_dir, exist_ok=True)
     
     # process all images
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.JPG', '.JPEG', '.PNG'}
+    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.heic', '.JPG', '.JPEG', '.PNG', '.HEIC'}
     for file_path in Path(source_dir).rglob('*'):
         if file_path.suffix in image_extensions:
             is_blurry, confidence = predict_blur(model, str(file_path), transform, device, threshold)
@@ -217,6 +218,7 @@ def main():
         print("Model saved to blur_classifier.pth")
         
     elif args.mode == 'inf':
+        register_heif_opener()
         model = BlurClassifier()
         model.load_state_dict(torch.load(args.model, weights_only=True))
         model = model.to(device)
