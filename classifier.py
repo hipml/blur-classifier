@@ -114,7 +114,7 @@ def train_model(model, train_loader, max_steps=1000, device='cuda'):
         if step >= max_steps:
             break
 
-def predict_blur(model, image_path, transform, device):
+def predict_blur(model, image_path, transform, device, threshold=0.8):
     model.eval()
     
     try:
@@ -124,19 +124,12 @@ def predict_blur(model, image_path, transform, device):
         with torch.no_grad():
             prob = model(image).item()
         
-        return prob > 0.8, prob
+        return prob > threshold, prob
     except Exception as e:
         print(f"Error processing {image_path}: {str(e)}")
         return None, None
 
-def process_directory(model, source_dir, output_dir, device):
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                           std=[0.229, 0.224, 0.225])
-    ])
-    
+def process_directory(model, source_dir, output_dir, device, transform):
     blurred_dir = os.path.join(output_dir, 'blurred')
     normal_dir = os.path.join(output_dir, 'normal')
     os.makedirs(blurred_dir, exist_ok=True)
@@ -172,8 +165,7 @@ def main():
     # Training
     ########################
     train_parser = subparsers.add_parser('train', help='Train the model')
-    train_parser.add_argument('--steps', type=int, default=1000,
-                            help='Number of training steps')
+    train_parser.add_argument('--steps', type=int, default=1000, help='Number of training steps')
     
     # Inference 
     ########################
@@ -181,21 +173,23 @@ def main():
     inf_parser.add_argument('--source', required=True, help='Source directory containing images')
     inf_parser.add_argument('--output', required=True, help='Output directory for sorted images')
     inf_parser.add_argument('--model', default='blur_classifier.pth', help='Path to model weights')
+    inf_parser.add_argument('--threshold', default=0.8, help='Blur detection threshold')
     
     args = parser.parse_args()
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-    
-    if args.mode == 'train':
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),
+
+    transform = transforms.Compose([
+            transforms.Resize((512, 512)),
             transforms.ToTensor(),
             # imagenet values are fine for this
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                               std=[0.229, 0.224, 0.225])
-        ])
-        
+                                 std=[0.229, 0.224, 0.225])
+    ])
+
+    if args.mode == 'train':
+                
         train_data = StreamingBlurDataset(transform=transform)
         train_loader = DataLoader(train_data, batch_size=32)
         
@@ -210,7 +204,7 @@ def main():
         model.load_state_dict(torch.load(args.model, weights_only=True))
         model = model.to(device)
         
-        process_directory(model, args.source, args.output, device)
+        process_directory(model, args.source, args.output, device, transform)
         print(f"\nProcessing complete. Check {args.output} for results.")
         
     else:
