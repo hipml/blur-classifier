@@ -220,7 +220,8 @@ def main():
     elif args.mode == 'inf':
         register_heif_opener()
         model = BlurClassifier()
-        model.load_state_dict(torch.load(args.model, weights_only=True))
+        model.load_state_dict(torch.load(args.model, weights_only=True,
+                                         map_location=torch.device(device)))
         model = model.to(device)
         
         process_directory(model, args.source, args.output, device, transform, args.threshold)
